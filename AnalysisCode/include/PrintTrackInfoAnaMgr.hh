@@ -20,6 +20,9 @@ public:
     virtual void EndOfEventAction(const G4Event*);
 
 private:
+    int m_verbose;
+    std::vector<int> m_eventID;
     
+   
 };
 #endif
