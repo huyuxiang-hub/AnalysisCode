@@ -5,6 +5,8 @@
 #include "SniperKernel/SniperLog.h"
 #include "SniperKernel/Incident.h"
 #include "SniperKernel/SniperException.h"
+#include "SniperKernel/SniperDataPtr.h"
+
 
 #include "DataRegistritionSvc/DataRegistritionSvc.h"
 
@@ -23,6 +25,7 @@
 #include "G4HCofThisEvent.hh"
 #include "G4VHitsCollection.hh"
 
+#include "DetSimAlg/ISimTrackSvc.h"
 
 DECLARE_TOOL(DataModelWriterWithSplit);
 
@@ -31,7 +34,7 @@ DataModelWriterWithSplit::DataModelWriterWithSplit(const std::string& name)
 {
     iotaskname = "detsimiotask";
     iotask = 0;
-    declProp("HitsMax", m_hitcol_max = 100); // max hits in one sub event
+    declProp("HitsMax", m_hitcol_max = 10000); // max hits in one sub event
 }
 
 DataModelWriterWithSplit::~DataModelWriterWithSplit()
@@ -42,7 +45,7 @@ DataModelWriterWithSplit::~DataModelWriterWithSplit()
 void
 DataModelWriterWithSplit::BeginOfRunAction(const G4Run* /*aRun*/) {
     // Here, the scope is another I/O Task 
-    Task* toptask = getParent()->getParent();
+    Task* toptask = getRoot();
     iotask = dynamic_cast<Task*>(toptask->find(iotaskname));
     if (iotask == 0) {
         LogError << "Can't find the task for I/O." << std::endl;
@@ -53,6 +56,13 @@ DataModelWriterWithSplit::BeginOfRunAction(const G4Run* /*aRun*/) {
     if ( mMgr.invalid() ) {
         LogError << "Failed to get BufferMemMgr!" << std::endl;
         throw SniperException("Make sure you have load the BufferMemMgr.");
+    }
+    
+    SniperPtr<ISimTrackSvc> simtracksvc_ptr(getParent(), "SimTrackSvc");
+    if (simtracksvc_ptr.invalid()) {
+      simtracksvc = dynamic_cast<ISimTrackSvc*>(getParent()->createSvc("SimTrackSvc"));
+    } else {
+        simtracksvc = simtracksvc_ptr.data();
     }
     // SniperPtr<DataRegistritionSvc> drsSvc(iotask, "DataRegistritionSvc");
     // if ( drsSvc.invalid() ) {
@@ -86,6 +96,9 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
         return;
     }
     int n_hit = col->entries();
+    if(n_hit==0)
+       {col=0;}
+   
     CollID = SDman->GetCollectionID("hitCollectionMuon");
     junoHit_PMT_muon_Collection* col_muon = (junoHit_PMT_muon_Collection*)(HCE->GetHC(CollID));
     if (col_muon) {
@@ -93,7 +106,83 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
                  << std::endl;
         n_hit += col_muon->entries();
     }
+   
+    if(col){col_muon=0;}
+
     m_start_idx = 0;
+    ///=======================//
+    int m_nPhotons = 0;
+    double m_timewindow = 0.0;
+    bool minmax_initialized = false;
+    double max_CDLPMT_hittime = 0;
+    double min_CDLPMT_hittime = 0;
+
+    if(col_muon){
+    
+    for (int i = 0; i < n_hit; ++i) {
+    int copyno = (*col_muon)[i]->GetPMTID();
+     if(copyno < 30000) 
+                {
+                    if (!minmax_initialized) {
+                        max_CDLPMT_hittime = ((*col_muon)[i]->GetTime());
+                        min_CDLPMT_hittime = ((*col_muon)[i]->GetTime());
+                        minmax_initialized = true;
+                    } else { 
+                        if ((*col_muon)[i]->GetTime() < min_CDLPMT_hittime) {
+                            min_CDLPMT_hittime = (*col_muon)[i]->GetTime();
+                        }
+                        if ((*col_muon)[i]->GetTime() > max_CDLPMT_hittime) {
+                            max_CDLPMT_hittime = (*col_muon)[i]->GetTime();
+                        }
+                    }
+                }
+      if( copyno < 30000 || copyno >= 300000)
+        { m_nPhotons += (*col_muon)[i]->GetCount();}
+         
+        }
+       m_timewindow = max_CDLPMT_hittime - min_CDLPMT_hittime;
+     }
+   
+    if(col)
+    {
+       for (int i = 0; i < n_hit; ++i) {
+       int copyno = (*col)[i]->GetPMTID();
+       if(copyno < 30000)
+                {
+                    if (!minmax_initialized) {
+                        max_CDLPMT_hittime = ((*col)[i]->GetTime());
+                        min_CDLPMT_hittime = ((*col)[i]->GetTime());
+                        minmax_initialized = true;
+                    } else {
+                        if ((*col)[i]->GetTime() < min_CDLPMT_hittime) {
+                            min_CDLPMT_hittime = (*col)[i]->GetTime();
+                        }
+                        if ((*col)[i]->GetTime() > max_CDLPMT_hittime) {
+                            max_CDLPMT_hittime = (*col)[i]->GetTime();
+                        }
+                    }
+                }
+
+        
+
+        }
+       m_nPhotons=col->entries();
+       m_timewindow = max_CDLPMT_hittime - min_CDLPMT_hittime;
+
+    
+     }
+    
+    SniperDataPtr<JM::NavBuffer>  navBuf(*getParent(), "/Event");
+    if (navBuf.invalid()) {
+        LogError << "Can't find the NavBuffer." << std::endl;
+        return;
+    }
+    JM::EvtNavigator* evt_nav = navBuf->curEvt();
+    if (not evt_nav) {
+        LogError << "Can't find the event navigator." << std::endl;
+        return;
+    }
+
     // == get the BufferMemMgr of I/O task ==
     SniperPtr<IDataMemMgr> mMgr(*iotask, "BufferMemMgr");
     // == begin magic ==
@@ -102,17 +191,32 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
         LogDebug << "Event idx: " << evt->GetEventID() << std::endl;
         LogDebug << "start idx: " << m_start_idx << std::endl;
         JM::EvtNavigator* nav = new JM::EvtNavigator();
+        if(m_start_idx==0){
+         TTimeStamp ts = evt_nav->TimeStamp();
+         nav->setTimeStamp(ts);
+
+        }else{
         TTimeStamp ts;
         nav->setTimeStamp(ts);
+        }
         mMgr->adopt(nav, "/Event");
+        
         // == create header ==
+        
         JM::SimHeader* sim_header = new JM::SimHeader;
+        if (m_start_idx==0){
+           sim_header->setCDLPMTtotalHits(m_nPhotons);
+           sim_header->setCDLPMTtimeWindow(m_timewindow);
+         }
         // == create event ==
         JM::SimEvent* sim_event = new JM::SimEvent(evt->GetEventID());
+        // == fill tracks ==
+        if (m_start_idx==0 ){     
+        collect_primary_track(evt);
+        fill_tracks(sim_event);
+        }
         // == fill hits ==
         fill_hits(sim_event, evt);
-        // == fill tracks ==
-        fill_tracks(sim_event, evt);
         // == add header ==
         sim_header->setEvent(sim_event);
         nav->addHeader("/Event/Sim", sim_header);
@@ -151,9 +255,10 @@ DataModelWriterWithSplit::fill_hits(JM::SimEvent* dst, const G4Event* evt)
 }
 
 void 
-DataModelWriterWithSplit::fill_tracks(JM::SimEvent* dst, const G4Event* evt)
+DataModelWriterWithSplit::collect_primary_track(const G4Event* evt)
 {
     LogDebug << "Begin Fill Tracks" << std::endl;
+    std::vector<JM::SimTrack*>& m_tracks=simtracksvc->all();     
 
     G4int nVertex = evt -> GetNumberOfPrimaryVertex();
     for (G4int index=0; index < nVertex; ++index) {
@@ -178,20 +283,74 @@ DataModelWriterWithSplit::fill_tracks(JM::SimEvent* dst, const G4Event* evt)
             double mass = pp -> GetMass();
 
             // new track
-            JM::SimTrack* jm_trk = dst->addTrack();
-            jm_trk->setPDGID(pdgid);
-            jm_trk->setTrackID(trkid);
-            jm_trk->setInitPx(px);
-            jm_trk->setInitPy(py);
-            jm_trk->setInitPz(pz);
-            jm_trk->setInitMass(mass);
-            jm_trk->setInitX(x);
-            jm_trk->setInitY(y);
-            jm_trk->setInitZ(z);
-            jm_trk->setInitT(t);
+             for (auto trk: m_tracks) {
+             if (trkid == trk->getTrackID()) {
+                  trk->setPDGID(pdgid);
+                  trk->setInitPx(px);
+                  trk->setInitPy(py);
+                  trk->setInitPz(pz);
+                  trk->setInitMass(mass);
+                  trk->setInitX(x);
+                  trk->setInitY(y);
+                  trk->setInitZ(z);
+                  trk->setInitT(t);
+                  
+                  break;
+               }
+             }
 
             pp = pp->GetNext();
         }
     }
     LogDebug << "End Fill Tracks" << std::endl;
 }
+
+void
+DataModelWriterWithSplit::fill_tracks(JM::SimEvent* dst)
+{
+    if (!simtracksvc) {
+        LogWarn << "SimTrackSvc is not available to save additional tracks" << std::endl;
+        return;
+    }
+    std::vector<JM::SimTrack*>& alltracks = simtracksvc->all();
+    for (auto track: alltracks) {
+        JM::SimTrack* jm_trk = dst->addTrack();
+
+        jm_trk->setPDGID   (track->getPDGID());
+        jm_trk->setTrackID (track->getTrackID());
+        jm_trk->setInitMass(track->getInitMass());
+
+        jm_trk->setInitPx  (track->getInitPx());
+        jm_trk->setInitPy  (track->getInitPy());
+        jm_trk->setInitPz  (track->getInitPz());
+        jm_trk->setInitX   (track->getInitX());
+        jm_trk->setInitY   (track->getInitY());
+        jm_trk->setInitZ   (track->getInitZ());
+        jm_trk->setInitT   (track->getInitT());
+
+        jm_trk->setExitPx  (track->getExitPx());
+        jm_trk->setExitPy  (track->getExitPy());
+        jm_trk->setExitPz  (track->getExitPz());
+        jm_trk->setExitX   (track->getExitX());
+        jm_trk->setExitY   (track->getExitY());
+        jm_trk->setExitZ   (track->getExitZ());
+        jm_trk->setExitT   (track->getExitT());
+
+        jm_trk->setTrackLength(track->getTrackLength());
+
+        jm_trk->setEdep    (track->getEdep());
+        jm_trk->setEdepX   (track->getEdepX());
+        jm_trk->setEdepY   (track->getEdepY());
+        jm_trk->setEdepZ   (track->getEdepZ());
+        
+        jm_trk->setQEdep   (track->getQEdep());
+        jm_trk->setQEdepX  (track->getQEdepX());
+        jm_trk->setQEdepY  (track->getQEdepY());
+        jm_trk->setQEdepZ  (track->getQEdepZ());
+
+        jm_trk->setEdepNotInLS(track->getEdepNotInLS());
+    }
+
+    simtracksvc->reset();
+}
+

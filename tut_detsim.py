@@ -121,7 +121,7 @@ def get_parser():
     parser.add_argument("--no-dae", dest="dae", action="store_false",
                                                   help=mh("Don't Save DAE."))
     parser.set_defaults(dae=False)
-
+  
     # = Calibration =
     grp_calib_unit = parser.add_argument_group(mh("calibunits"), mh("Calibration Units."))
     grp_calib_unit.add_argument("--pelletron", action="store_true",
@@ -232,6 +232,18 @@ def get_parser():
     grp_pmt_op.add_argument("--pmt3inch-offset", type=float, default=-50.0,
                         help=mh("The offset of the 3inch PMT (mm)."))
 
+    # add new optical model
+    
+    grp_pmt_op.add_argument("--new-optical-model", dest="new_optical_model", action="store_true",
+                  help=mh("Use the new optical model."))
+    grp_pmt_op.add_argument("--old-optical-model", dest="new_optical_model", action="store_false",
+                  help=mh("Use the old optical model"))
+    grp_pmt_op.set_defaults(new_optical_model=False)
+   
+    
+
+
+
     grp_pmt_op.add_argument("--pmtsd-v2", dest="pmtsd_v2", action="store_true",
                   help=mh("Use the new PMT SD v2. (without old PMT Optical Model)"))
     grp_pmt_op.add_argument("--no-pmtsd-v2", dest="pmtsd_v2", action="store_false",
@@ -269,6 +281,7 @@ def get_parser():
     grp_pmt_op.set_defaults(cerenkov=True)
     # == enable/disable new optical model, absreemit ==
     # note: cerenkov_only means disable the scintillation.
+    '''
     grp_pmt_op.add_argument("--absreemit", dest="absreemit", action="store_true",
                         help=mh("Enable Absorption and Reemission by PPO and bis_MSB (default is disabled)"))
     grp_pmt_op.add_argument("--no-absreemit", dest="absreemit", action="store_false",
@@ -280,6 +293,7 @@ def get_parser():
     grp_pmt_op.add_argument("--no-scintsimple", dest="scintsimple", action="store_false",
                         help=mh("Disable scint process without re-emission in it. Use default one."))
     grp_pmt_op.set_defaults(scintsimple=False)
+    '''
     # == track optical photons first or not ==
     grp_pmt_op.add_argument("--track-op-first", dest="track_op_first", action="store_true",
                         help=mh("Track optical photon first."))
@@ -359,6 +373,12 @@ def get_parser():
     grp_anamgr.add_argument("--anamgr-normal", action="store_true", dest="anamgr_normal", help=mh("TBD"))
     grp_anamgr.add_argument("--no-anamgr-normal", action="store_false", dest="anamgr_normal", help=mh("TBD"))
     grp_anamgr.set_defaults(anamgr_normal=True)
+   
+    grp_anamgr.add_argument("--anamgr-normal-hit",action="store_true",dest="anamgr_normal_hit",help=mh("TBD"))
+    grp_anamgr.add_argument("--no-anamgr-normal-hit",action="store_false",dest="anamgr_normal_hit",help=mh("TBD"))
+    grp_anamgr.set_defaults(anamgr_normal_hit=False) 
+   
+
     # == genevt ==
     grp_anamgr.add_argument("--anamgr-genevt", action="store_true", dest="anamgr_genevt", help=mh("TBD"))
     grp_anamgr.add_argument("--no-anamgr-genevt", action="store_false", dest="anamgr_genevt", help=mh("TBD"))
@@ -386,10 +406,14 @@ def get_parser():
     grp_anamgr.add_argument("--anamgr-photon-tracking", action="store_true", dest="anamgr_photon_tracking", help=mh("TBD"))
     grp_anamgr.add_argument("--no-anamgr-photon-tracking", action="store_false", dest="anamgr_photon_tracking", help=mh("TBD"))
     grp_anamgr.set_defaults(anamgr_photon_tracking=False)
-
-  
-    grp_anamgr.add_argument("--anamgr-print-trackinfo", help=mh("print track information of specified event"))
-
+    #== print G4 track information of specified event ==#
+    grp_anamgr.add_argument("--anamgr-g4tracking-verbose",type=int,help=mh("print G4 tracking information verbose!"))
+    grp_anamgr.add_argument("--anamgr-g4tracking-evtlist",default=None,
+                                         help=mh('store the event ID list , both '
+                                         'a list of integer or a file contains '
+                                         'the list of integer is supported. '
+                                         'such as:'
+                                         '   --evtlist "1,2,3..."'))
     # == extend the anamgr ==
     grp_anamgr.add_argument("--anamgr-list", action="append", metavar="anamgr", default=[],
             help=mh("append anamgr to the anamgr list. You can specify anamgrs multiple times. "
@@ -1001,7 +1025,7 @@ if __name__ == "__main__":
         args.seed = -args.seed
 
     print("= INITIALIZATION =")
-    task = Sniper.Task("detsimtask")
+    task = Sniper.TopTask("detsimtask")
     # task.asTop()
     task.setEvtMax(args.evtmax)
     task.setLogLevel(DATA_LOG_MAP[args.loglevel])
@@ -1057,6 +1081,7 @@ if __name__ == "__main__":
         print("loaded seed status: ", seedstatus)
         rndm.property("SeedStatusInputVector").set(seedstatus)
 
+    
     # = root writer =
     print("== Root Writer ==")
     import RootWriter
@@ -1192,6 +1217,7 @@ if __name__ == "__main__":
         detsimfactory.property("CDEnabled").set(args.cd_enabled)
         detsimfactory.property("WPEnabled").set(args.wp_enabled)
         detsimfactory.property("TTEnabled").set(args.tt_enabled)
+    
         if args.shutter:
             acrylic_conf.enable_shutter()
         # = analysis manager control =
@@ -1217,33 +1243,24 @@ if __name__ == "__main__":
             ram.property("StopAtPa234m").set(args.stopAtPa234m)
 
         # == edm (event data model) ==
-        if args.anamgr_edm:
-            detsimfactory.property("AnaMgrList").append("DataModelWriter")
-        # == TT ==
-        if args.anamgr_tt:
-            sim_conf.set_tt_edep_output()
-        # == if split mode enable, disable others ==
+        # == if split mode enable, disable others ==   
         if args.anamgr_edm and args.splitoutput:
-            detsimfactory = sim_conf.detsimfactory()
             detsimfactory.property("AnaMgrList").append(
                                         "DataModelWriterWithSplit",
                                         )
             dmwws = sim_conf.tool("DataModelWriterWithSplit")
             dmwws.property("HitsMax").set(args.split_maxhits)
+        elif args.anamgr_edm:
+            detsimfactory.property("AnaMgrList").append("DataModelWriter")
+        # == TT ==
+        if args.anamgr_tt:
+            sim_conf.set_tt_edep_output()
         # == normal anamgr ==
-        
-        if args.anamgr_print_trackinfo:
-            detsimfactory.property("AnaMgrList").append("PrintTrackInfoAnaMgr")
-            print_anamgr = sim_conf.tool("PrintTrackInfoAnaMgr")
-            with open ( args.anamgr_print_trackinfo , 'r')  as f :
-                lines=[l[:-1] for l in f.readlines()]
-                lines = [l.strip() for l in lines if len(l.strip())>0]
-            lines_num=[ int(x) for x in lines ]
-            print_anamgr.property("VerBose").set(lines_num[0])
-            del lines_num[0]
-            print_anamgr.property("EventID").set(lines_num)
         if args.anamgr_normal:
             detsimfactory.property("AnaMgrList").append("NormalAnaMgr")
+            if args.anamgr_normal_hit:
+               normal_anamgr=sim_conf.tool("NormalAnaMgr")
+               normal_anamgr.property("EnableHitInfo").set(args.anamgr_normal_hit)
         # == genevt anamgr ==
         if args.anamgr_genevt:
             detsimfactory.property("AnaMgrList").append("GenEvtInfoAnaMgr")
@@ -1268,6 +1285,33 @@ if __name__ == "__main__":
         # == photon tracking ==
         if args.anamgr_photon_tracking:
             detsimfactory.property("AnaMgrList").append("PhotonTrackingAnaMgr")
+        # == print G4 track information of specified event ==#
+        if args.anamgr_g4tracking_verbose and args.anamgr_g4tracking_evtlist:
+            detsimfactory.property("AnaMgrList").append("PrintG4TrackAnaMgr")
+            print_anamgr = sim_conf.tool("PrintG4TrackAnaMgr")
+            import os.path
+            if os.path.exists(args.anamgr_g4tracking_evtlist):
+                filename = args.anamgr_g4tracking_evtlist
+                with open(filename) as f:
+                    for line in f:
+                        print(line)
+                        l = line.strip()
+                        break
+            else:
+                l = args.anamgr_g4tracking_evtlist
+            import re
+            l = re.split(',\s*|\s+', l)
+            evtid = [int(i) for i in l if i.isdigit()]
+            print("evtid list: ", evtid)
+            print_anamgr.property("VerBose").set(args.anamgr_g4tracking_verbose)
+            print_anamgr.property("EventID").set(evtid)
+        if args.anamgr_g4tracking_verbose and not args.anamgr_g4tracking_evtlist:
+            detsimfactory.property("AnaMgrList").append("PrintG4TrackAnaMgr")
+            print_anamgr = sim_conf.tool("PrintG4TrackAnaMgr")
+            print_anamgr.property("VerBose").set(args.anamgr_g4tracking_verbose)
+            li=range(args.evtmax)
+            print_anamgr.property("EventID").set(li) 
+        #================================#     
         # == append other anamgr into the list ==
         for tmp_anamgr in args.anamgr_list:
             detsimfactory.property("AnaMgrList").append(tmp_anamgr)
@@ -1353,8 +1397,15 @@ if __name__ == "__main__":
 
         op_process.property("UseQuenching").set(args.quenching)
         # new optical model
-        op_process.property("UseAbsReemit").set(args.absreemit)
-        op_process.property("UseScintSimple").set(args.scintsimple)
+        if args.new_optical_model:
+            op_process.property("UseAbsReemit").set(True)
+            op_process.property("UseScintSimple").set(True)
+        else:
+            op_process.property("UseAbsReemit").set(False)
+            op_process.property("UseScintSimple").set(False)
+
+       # op_process.property("UseAbsReemit").set(args.absreemit)
+       # op_process.property("UseScintSimple").set(args.scintsimple)
         # other flags:
         op_process.property("doTrackSecondariesFirst").set(args.track_op_first)
             
@@ -1408,10 +1459,13 @@ if __name__ == "__main__":
             pass
         pass    
 
-
-
-
-
+        # add LS AbsLength Mode #
+        if args.new_optical_model:
+            detsimfactory.property("GdLSAbsLengthMode").set(1) # 1 for LAB AbsLength
+        else:
+            detsimfactory.property("GdLSAbsLengthMode").set(0) # 0 for old LS AbsLength
+        #-----------------------------------------#     
+       
         detsimfactory.property("PMTName").set(args.pmt20inch_name)
         detsimfactory.property("LPMTExtra").set(args.pmt20inch_extra)
         if args.pmt20inch_name == "R12860":

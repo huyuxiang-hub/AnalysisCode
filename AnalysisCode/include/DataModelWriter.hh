@@ -8,11 +8,13 @@
 #include "junoHit_PMT_muon.hh"
 #include "Event/SimHeader.h"
 #include "Event/SimEvent.h"
+#include "Event/SimTrack.h"
 
 class ISimTrackSvc;
 class G4Event;
 namespace JM {
     class SimEvent;
+    class SimTrack;
 }
 
 template<typename T>
@@ -117,10 +119,10 @@ private:
         }
     }
     // fill tracks
-    void fill_tracks(JM::SimEvent* dst, const G4Event* evt);
+    void collect_primary_track(const G4Event* evt);
     
     // get the additional tracks from SimTrackSvc.
-    void fill_additional_tracks(JM::SimEvent* dst);
+    void fill_tracks(JM::SimEvent* dst);
 };
 
 #endif

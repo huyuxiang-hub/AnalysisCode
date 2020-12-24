@@ -12,6 +12,7 @@
 #include "EvtNavigator/NavBuffer.h"
 #include "Event/SimHeader.h"
 #include "Event/SimEvent.h"
+#include "Event/SimTrack.h"
 
 #include "G4Event.hh"
 #include "G4Track.hh"
@@ -106,8 +107,8 @@ DataModelWriter::EndOfEventAction(const G4Event* evt) {
     // == fill hits
     fill_hits(sim_event, evt);
     // == fill tracks
-    fill_tracks(sim_event, evt);
-    fill_additional_tracks(sim_event);
+    collect_primary_track(evt);
+    fill_tracks(sim_event);
 
     if (m_timewindow>0) {
         sim_header->setCDLPMTtimeWindow(m_timewindow);
@@ -172,9 +173,10 @@ DataModelWriter::fill_hits(JM::SimEvent* dst, const G4Event* evt)
 }
 
 void 
-DataModelWriter::fill_tracks(JM::SimEvent* dst, const G4Event* evt)
+DataModelWriter::collect_primary_track(const G4Event* evt)
 {
     LogDebug << "Begin Fill Tracks" << std::endl;
+ //   std::vector<JM::SimTrack*>& m_tracks = simtracksvc->all();
 
     G4int nVertex = evt -> GetNumberOfPrimaryVertex();
     for (G4int index=0; index < nVertex; ++index) {
@@ -197,11 +199,17 @@ DataModelWriter::fill_tracks(JM::SimEvent* dst, const G4Event* evt)
             double py = pp -> GetPy();
             double pz = pp -> GetPz();
             double mass = pp -> GetMass();
-
+            
+             
             // new track
-            JM::SimTrack* jm_trk = dst->addTrack();
+            JM::SimTrack* jm_trk = simtracksvc->get(trkid);
+            if(!jm_trk){
+               JM::SimTrack* trk=new JM::SimTrack();
+               trk->setTrackID(trkid);
+               simtracksvc->put(trk);
+               jm_trk=trk;
+            }
             jm_trk->setPDGID(pdgid);
-            jm_trk->setTrackID(trkid);
             jm_trk->setInitPx(px);
             jm_trk->setInitPy(py);
             jm_trk->setInitPz(pz);
@@ -218,7 +226,7 @@ DataModelWriter::fill_tracks(JM::SimEvent* dst, const G4Event* evt)
 }
 
 void
-DataModelWriter::fill_additional_tracks(JM::SimEvent* dst)
+DataModelWriter::fill_tracks(JM::SimEvent* dst)
 {
     if (!simtracksvc) {
         LogWarn << "SimTrackSvc is not available to save additional tracks" << std::endl;
@@ -226,10 +234,9 @@ DataModelWriter::fill_additional_tracks(JM::SimEvent* dst)
     }
 
     std::vector<JM::SimTrack*>& alltracks = simtracksvc->all();
-
     for (auto track: alltracks) {
         JM::SimTrack* jm_trk = dst->addTrack();
-
+        
         jm_trk->setPDGID   (track->getPDGID());
         jm_trk->setTrackID (track->getTrackID());
         jm_trk->setInitMass(track->getInitMass());
@@ -256,7 +263,7 @@ DataModelWriter::fill_additional_tracks(JM::SimEvent* dst)
         jm_trk->setEdepX   (track->getEdepX());
         jm_trk->setEdepY   (track->getEdepY());
         jm_trk->setEdepZ   (track->getEdepZ());
-
+        
         jm_trk->setQEdep   (track->getQEdep());
         jm_trk->setQEdepX  (track->getQEdepX());
         jm_trk->setQEdepY  (track->getQEdepY());

@@ -36,6 +36,14 @@ GenEvtInfoAnaMgr::BeginOfRunAction(const G4Run* /*aRun*/) {
     if (not m_flag_ntuple) {
         return;
     }
+    //---------------//
+    SniperPtr<ISimTrackSvc> simtracksvc_ptr(getParent(), "SimTrackSvc");
+    if (simtracksvc_ptr.invalid()) {
+        simtracksvc = dynamic_cast<ISimTrackSvc*>(getParent()->createSvc("SimTrackSvc"));
+    } else {
+        simtracksvc = simtracksvc_ptr.data();
+    }
+
     // check the RootWriter is Valid.
 
     SniperPtr<RootWriter> svc(*getParent(), "RootWriter");
@@ -256,6 +264,18 @@ GenEvtInfoAnaMgr::PostUserTrackingAction(const G4Track* aTrack) {
     LogDebug << " +-- Exit Mom: " << stop_mom.x() << " "
                                   << stop_mom.y() << " "
                                   << stop_mom.z() << std::endl;
+        
+    JM::SimTrack* trk=simtracksvc->get(current_trkid);
+        trk->setExitPx( m_by_track_exit_px[current_trkid]);
+        trk->setExitPy( m_by_track_exit_py[current_trkid]);
+        trk->setExitPz( m_by_track_exit_pz[current_trkid]);
+        trk->setExitX(m_by_track_exit_x[current_trkid]);
+        trk->setExitY(m_by_track_exit_y[current_trkid]);
+        trk->setExitZ(m_by_track_exit_z[current_trkid]);
+        trk->setExitT(m_by_track_exit_t[current_trkid]);
+
+        trk->setTrackLength(m_by_track_length[current_trkid]);
+
 }
 
 bool

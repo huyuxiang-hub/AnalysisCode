@@ -9,6 +9,7 @@
 #include "Event/SimHeader.h"
 #include "Event/SimEvent.h"
 
+class ISimTrackSvc;
 class G4Event;
 namespace JM {
     class SimEvent;
@@ -58,18 +59,21 @@ private:
             jm_hit->setNPE( (*col)[i]->GetCount() );
             jm_hit->setHitTime( (*col)[i]->GetTime() );
             jm_hit->setTrackID( (*col)[i]->GetProducerID() );
+            jm_hit->setLocalTheta( (*col)[i]->GetTheta() );
+            jm_hit->setLocalPhi( (*col)[i]->GetPhi() );            
 
         }
     }
     // fill tracks
-    void fill_tracks(JM::SimEvent* dst, const G4Event* evt);
-
+    void collect_primary_track(const G4Event* evt);
+    void fill_tracks(JM::SimEvent* dst);
 private:
     int m_start_idx;
     int m_hitcol_max;
 private:
     std::string iotaskname;
     Task* iotask;
+    ISimTrackSvc* simtracksvc;
 };
 
 #endif

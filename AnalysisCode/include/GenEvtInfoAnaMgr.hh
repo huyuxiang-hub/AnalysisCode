@@ -4,6 +4,7 @@
 #include "SniperKernel/ToolBase.h"
 #include "DetSimAlg/IAnalysisElement.h"
 #include "TTree.h"
+#include "DetSimAlg/ISimTrackSvc.h"
 
 /*
  * This Analysis Element is used for saving the initial particle's info
@@ -79,6 +80,9 @@ private:
   float m_by_track_exit_pz[MAX_PARTICLES];
 
     bool m_flag_ntuple;
+//--------//
+   private:
+    ISimTrackSvc* simtracksvc;
 };
 
 #endif

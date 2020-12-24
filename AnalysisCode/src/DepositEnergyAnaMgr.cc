@@ -106,7 +106,7 @@ DepositEnergyAnaMgr::BeginOfEventAction(const G4Event* evt) {
 
         m_edep_notinLS[i] = 0.0;
     }
-
+   
 }
 
 void
@@ -160,12 +160,51 @@ DepositEnergyAnaMgr::EndOfEventAction(const G4Event* evt) {
 }
 
 void
-DepositEnergyAnaMgr::PreUserTrackingAction(const G4Track* /*aTrack*/) {
-
+DepositEnergyAnaMgr::PreUserTrackingAction(const G4Track* aTrack) {
+ 
+  if( aTrack->GetParentID()==0 )
+     {
+            JM::SimTrack* jm_trk = new JM::SimTrack();
+            int trkid= aTrack->GetTrackID();
+            jm_trk->setTrackID(trkid);
+            simtracksvc->put(jm_trk);  
+     } 
+  
 }
 
 void
-DepositEnergyAnaMgr::PostUserTrackingAction(const G4Track* /*aTrack*/) {
+DepositEnergyAnaMgr::PostUserTrackingAction(const G4Track* aTrack) {
+  
+    NormalTrackInfo* trackinfo = (NormalTrackInfo*)aTrack->GetUserInformation();
+    if (not trackinfo) {
+        return;
+    }
+    G4int prmtrkid = trackinfo->GetOriginalTrackID();
+
+    if (prmtrkid <= 0) {
+        return;
+    }
+    G4int idx = prmtrkid - 1;
+    
+    std::vector<JM::SimTrack*>& m_tracks=simtracksvc->all();
+    for (auto trk: m_tracks) {
+  
+        if ( prmtrkid == trk->getTrackID()) {
+             if ( m_edep[idx] > 0 ){
+                   trk->setEdep(m_edep[idx]);
+                   trk->setEdepX( m_edep_x[idx]/m_edep[idx] );
+                   trk->setEdepY( m_edep_y[idx]/m_edep[idx] );
+                   trk->setEdepZ( m_edep_z[idx]/m_edep[idx] );
+              }
+             if( m_q_edep[idx] > 0){
+                  trk->setQEdep(  m_q_edep[idx] );
+                  trk->setQEdepX( m_q_edep_x[idx]/m_q_edep[idx] );
+                  trk->setQEdepY( m_q_edep_y[idx]/m_q_edep[idx] );
+                  trk->setQEdepZ( m_q_edep_z[idx]/m_q_edep[idx] );
+              }
+                  trk->setEdepNotInLS( m_edep_notinLS[idx] );
+          }
+    } 
 
 }
 
