@@ -70,6 +70,7 @@ private:
 private:
     int m_start_idx;
     int m_hitcol_max;
+    bool m_disable_split;
 private:
     std::string iotaskname;
     Task* iotask;

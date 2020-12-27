@@ -164,10 +164,14 @@ DepositEnergyAnaMgr::PreUserTrackingAction(const G4Track* aTrack) {
  
   if( aTrack->GetParentID()==0 )
      {
-            JM::SimTrack* jm_trk = new JM::SimTrack();
+           
             int trkid= aTrack->GetTrackID();
-            jm_trk->setTrackID(trkid);
-            simtracksvc->put(jm_trk);  
+            JM::SimTrack* jm_trk = simtracksvc -> get(trkid);
+            if(!jm_trk){
+               jm_trk = new JM::SimTrack();
+               jm_trk->setTrackID(trkid);
+               simtracksvc->put(jm_trk);
+             }  
      } 
   
 }

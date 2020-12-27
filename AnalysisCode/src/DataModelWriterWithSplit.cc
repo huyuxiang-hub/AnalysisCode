@@ -35,6 +35,7 @@ DataModelWriterWithSplit::DataModelWriterWithSplit(const std::string& name)
     iotaskname = "detsimiotask";
     iotask = 0;
     declProp("HitsMax", m_hitcol_max = 10000); // max hits in one sub event
+    declProp("disable_split",m_disable_split=true);
 }
 
 DataModelWriterWithSplit::~DataModelWriterWithSplit()
@@ -183,6 +184,9 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
         return;
     }
 
+    if(m_disable_split==true){
+         m_hitcol_max = n_hit;
+     }
     // == get the BufferMemMgr of I/O task ==
     SniperPtr<IDataMemMgr> mMgr(*iotask, "BufferMemMgr");
     // == begin magic ==
@@ -283,21 +287,22 @@ DataModelWriterWithSplit::collect_primary_track(const G4Event* evt)
             double mass = pp -> GetMass();
 
             // new track
-             for (auto trk: m_tracks) {
-             if (trkid == trk->getTrackID()) {
-                  trk->setPDGID(pdgid);
-                  trk->setInitPx(px);
-                  trk->setInitPy(py);
-                  trk->setInitPz(pz);
-                  trk->setInitMass(mass);
-                  trk->setInitX(x);
-                  trk->setInitY(y);
-                  trk->setInitZ(z);
-                  trk->setInitT(t);
-                  
-                  break;
-               }
-             }
+            JM::SimTrack* jm_trk = simtracksvc->get(trkid);
+            if(!jm_trk){
+               JM::SimTrack* trk=new JM::SimTrack();
+               trk->setTrackID(trkid);
+               simtracksvc->put(trk);
+               jm_trk=trk;
+            }
+            jm_trk->setPDGID(pdgid);
+            jm_trk->setInitPx(px);
+            jm_trk->setInitPy(py);
+            jm_trk->setInitPz(pz);
+            jm_trk->setInitMass(mass);
+            jm_trk->setInitX(x);
+            jm_trk->setInitY(y);
+            jm_trk->setInitZ(z);
+            jm_trk->setInitT(t);
 
             pp = pp->GetNext();
         }

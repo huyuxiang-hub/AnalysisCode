@@ -84,11 +84,14 @@ def get_parser():
 
     parser.add_argument("--dbtype", default="File", help="PMTSimParamSvc db type", choices=["File", "MySQL"])
     # = Split Mode =
+    
     grp_split = parser.add_argument_group(mh("splitmode"), mh("Split mode related"))
+    '''
     grp_split.add_argument("--output-split", dest="splitoutput", action="store_true", help=mh("enable split output"))
     grp_split.add_argument("--no-output-split", dest="splitoutput", action="store_false", help=mh("disable split output"))
     grp_split.add_argument("--split-maxhits", type=int, default=100, help=mh("Max hits in sub event."))
     grp_split.set_defaults(splitoutput=False)
+    '''
     # split primary track step by step. For muon simulation
     grp_split.add_argument("--track-split", dest="splittrack", action="store_true", help=mh("enable split track"))
     grp_split.add_argument("--no-track-split", dest="splittrack", action="store_false", help=mh("disable split track"))
@@ -362,8 +365,14 @@ def get_parser():
     # == event data model ==
     grp_anamgr.add_argument("--anamgr-edm", action="store_true", dest="anamgr_edm", help=mh("enable event data model writer, including the writer with split"))
     grp_anamgr.add_argument("--no-anamgr-edm", action="store_false", dest="anamgr_edm", help=mh("disable event data model writer, including the writer with split"))
-    grp_anamgr.set_defaults(anamgr_edm=True)
-
+    grp_anamgr.set_defaults(anamgr_edm=False)
+    #== split event data model ==#
+    
+    grp_anamgr.add_argument("--anamgr-edm-v2", action="store_true", dest="anamgr_edm_v2", help=mh("enable event data model writer with split"))
+    grp_anamgr.add_argument("--no-anamgr-edm-v2", action="store_false", dest="anamgr_edm_v2", help=mh("disable event data model writer with split"))
+    grp_anamgr.add_argument("--split-maxhits", type=int, default=None, help=mh("Max hits in sub event."))
+    grp_anamgr.set_defaults(anamgr_edm_v2=True)
+   
     # == tt ==
     grp_anamgr.add_argument("--anamgr-tt", action="store_true", dest="anamgr_tt", help=mh("enable TT output"))
     grp_anamgr.add_argument("--no-anamgr-tt", action="store_false", dest="anamgr_tt", help=mh("disable TT output"))
@@ -1037,7 +1046,7 @@ if __name__ == "__main__":
     
     # if split output, we need to create another iotask for output
     iotask = task
-    if args.splitoutput:
+    if args.anamgr_edm_v2 and not args.anamgr_edm:
         iotask = task.createTask("Task/detsimiotask")
         import DataRegistritionSvc
         dr = iotask.createSvc("DataRegistritionSvc")
@@ -1049,7 +1058,7 @@ if __name__ == "__main__":
     import RootIOSvc
     ro = iotask.createSvc("RootOutputSvc/OutputSvc")
     output_streams = {}
-    if args.anamgr_edm:
+    if args.anamgr_edm or args.anamgr_edm_v2:
         output_streams["/Event/Sim"] = args.output
     ro.property("OutputStreams").set(output_streams)
     # = Data Buffer =
@@ -1244,14 +1253,18 @@ if __name__ == "__main__":
 
         # == edm (event data model) ==
         # == if split mode enable, disable others ==   
-        if args.anamgr_edm and args.splitoutput:
+        if args.anamgr_edm:
+            detsimfactory.property("AnaMgrList").append("DataModelWriter")
+        elif args.anamgr_edm_v2:
             detsimfactory.property("AnaMgrList").append(
                                         "DataModelWriterWithSplit",
                                         )
             dmwws = sim_conf.tool("DataModelWriterWithSplit")
-            dmwws.property("HitsMax").set(args.split_maxhits)
-        elif args.anamgr_edm:
-            detsimfactory.property("AnaMgrList").append("DataModelWriter")
+            if args.split_maxhits:
+                dmwws.property("disable_split").set(False)
+                dmwws.property("HitsMax").set(args.split_maxhits)
+            else:
+                dmwws.property("disable_split").set(True)   
         # == TT ==
         if args.anamgr_tt:
             sim_conf.set_tt_edep_output()
