@@ -65,8 +65,10 @@ private:
 private:
     // helper classes and variables
     VoxelMethodHelper::Geom* m_helper_geom;
-    VoxelMethodHelper::HitTimeLoader* m_helper_hittime;
-    VoxelMethodHelper::NPELoader* m_helper_npe;
+    //VoxelMethodHelper::HitTimeLoader* m_helper_hittime;
+    VoxelMethodHelper::HitTimeLoaderV2* m_helper_hittime;
+    //VoxelMethodHelper::NPELoader* m_helper_npe;
+    VoxelMethodHelper::NPELoaderV2* m_helper_npe;
 
     // input
     std::string geom_file;

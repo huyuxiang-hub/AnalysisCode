@@ -482,6 +482,16 @@ bool DepositEnergyTTAnaMgr::save_into_data_model() {
   if (not evt_nav) {
     return false;
   }
+
+  const std::vector<std::string>& m_paths= evt_nav->getPath();
+  std::vector<std::string>::const_iterator pos = std::find(m_paths.begin(), m_paths.end(), "/Event/Sim");
+  if ( m_paths.end() == pos ) {
+        return false;
+    }
+
+
+
+
   JM::SimHeader* m_simheader = dynamic_cast<JM::SimHeader*>(evt_nav->getHeader("/Event/Sim"));
   LogDebug << "simhdr: " << m_simheader << std::endl;
   if (not m_simheader) {

@@ -189,15 +189,14 @@ OpticalParameterAnaMgr::get_matprop(const G4MaterialPropertyVector* propvec,
         y = 0;
         return;
     }
-    // int entries = propvec->Entries();
-    // N = entries;
-    // x = new double[entries];
-    // y = new double[entries];
-    // for (int i = 0; i < entries; ++i) {
-    //     G4MPVEntry entry = propvec->GetEntry(i);
-    //     x[i] = entry.GetPhotonEnergy();
-    //     y[i] = entry.GetProperty();
-    // }
+    int entries = propvec->GetVectorLength();
+    N = entries;
+    x = new double[entries];
+    y = new double[entries];
+    for (int i = 0; i < entries; ++i) {
+        x[i] = propvec->Energy(i);
+        y[i] = (*propvec)[i];
+    }
 
 }
 

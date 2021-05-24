@@ -83,7 +83,6 @@ InteresingProcessAnaMgr::BeginOfRunAction(const G4Run* /*aRun*/) {
     m_neutron_tree -> Branch("z", &neutron_pos_z);
     m_neutron_tree -> Branch("t", &neutron_t);
 
-
     // SimTrackSvc
     SniperPtr<ISimTrackSvc> simtracksvc_ptr(getParent(), "SimTrackSvc");
     if (simtracksvc_ptr.invalid()) {
@@ -136,6 +135,9 @@ InteresingProcessAnaMgr::BeginOfEventAction(const G4Event* evt) {
     neutron_pos_z.clear();
     neutron_t    .clear();
 
+   
+    michel_trkid .clear();
+    neutron_sec_trkid.clear();
 }
 
 void
@@ -150,6 +152,7 @@ void
 InteresingProcessAnaMgr::PreUserTrackingAction(const G4Track* aTrack) {
     NormalTrackInfo* info = (NormalTrackInfo*)(aTrack->GetUserInformation());
     // LogDebug << "NormalTrackInfo: " << info << std::endl;
+
     if (info) {
         // select michael electron
         if (info->isMichaelElectron()) {
@@ -188,7 +191,7 @@ InteresingProcessAnaMgr::PostUserTrackingAction(const G4Track* aTrack) {
 
 // == Stepping Action
 void
-InteresingProcessAnaMgr::UserSteppingAction(const G4Step* /*step*/) {
+InteresingProcessAnaMgr::UserSteppingAction(const G4Step* step) {
 
 }
 
@@ -226,7 +229,7 @@ InteresingProcessAnaMgr::selectMichael(const G4Track* aTrack) {
             // const G4String& sec_name = secparticle->GetParticleName();
             const G4VProcess* creatorProcess = sectrk->GetCreatorProcess();
             G4double sec_kine = sectrk->GetKineticEnergy();
-
+       
             if (creatorProcess->GetProcessName()!="muMinusCaptureAtRest") {
                 continue;
             }
@@ -291,6 +294,20 @@ InteresingProcessAnaMgr::saveMichael(const G4Track* aTrack) {
     // track ID of the secondaries.
     LogDebug << "!--- TrkID: " << aTrack->GetTrackID() << std::endl;
     LogDebug << "!--- Kine : " << aTrack->GetKineticEnergy() << std::endl;
+    
+    //Please note: Geant4 may invoke PreUsertrackAction and PostUserTrackingAction many 
+    //times when we open optical simulation. Thus we should check the track ID when we want 
+    //to store variables.   
+    int ID = aTrack->GetTrackID();
+    std::vector<int>::iterator ret;
+    ret = std::find(michel_trkid.begin(), michel_trkid.end(), ID);
+    if(ret!= michel_trkid.end()){
+     return;
+     }
+    else{
+          michel_trkid.push_back(ID);      
+        }
+   //-----------------------------------//
 
     michael_pdgid.push_back(aTrack->GetDefinition()->GetPDGEncoding());
     michael_kine .push_back(aTrack->GetKineticEnergy());
@@ -404,6 +421,18 @@ InteresingProcessAnaMgr::saveNeutronCapture(const G4Track* aTrack) {
     LogDebug << "!-- Neutron Capture: " << std::endl;
     LogDebug << "!--- TrkID: " << aTrack->GetTrackID() << std::endl;
     LogDebug << "!--- Kine : " << aTrack->GetKineticEnergy() << std::endl;
+  
+    //-------------------------------------//
+    int ID = aTrack->GetTrackID();
+    std::vector<int>::iterator ret;
+    ret = std::find(neutron_sec_trkid.begin(), neutron_sec_trkid.end(), ID);
+    if(ret!= neutron_sec_trkid.end()){
+     return;
+     }
+    else{
+          neutron_sec_trkid.push_back(ID);
+        }   
+    //-------------------------------------//
 
     neutron_trkid.push_back(aTrack->GetParentID());
     neutron_pdgid.push_back(aTrack->GetDefinition()->GetPDGEncoding());

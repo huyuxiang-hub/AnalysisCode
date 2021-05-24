@@ -36,6 +36,8 @@ private:
     bool m_flag_dae;
     std::string m_filename_dae;
 #endif
+
+    std::string m_rootio_task; // the task name which contains OutputSvc
 };
 
 #endif

@@ -50,6 +50,18 @@ NormalAnaMgr::BeginOfRunAction(const G4Run* /*aRun*/) {
     }
     // check the RootWriter is Valid.
 
+    m_pmt_sim_param_svc = 0;
+    LogInfo << "Retrieving PMTSimParamSvc." << std::endl;
+    SniperPtr<IPMTSimParamSvc> simsvc(*getParent(), "PMTSimParamSvc");
+      if (simsvc.invalid()) {
+        LogError << "Can't get PMTSimParamSvc. We can't initialize PMT." << std::endl;
+        assert(0);
+      } else {
+        LogInfo << "Retrieve PMTSimParamSvc successfully." << std::endl;
+        m_pmt_sim_param_svc = simsvc.data();
+      }
+
+
     SniperPtr<RootWriter> svc(*getParent(), "RootWriter");
     if (svc.invalid()) {
         LogError << "Can't Locate RootWriter. If you want to use it, please "
@@ -66,8 +78,15 @@ NormalAnaMgr::BeginOfRunAction(const G4Run* /*aRun*/) {
     m_evt_tree->Branch("nPhotons", &m_nPhotons, "nPhotons/I");
     m_evt_tree->Branch("totalPE", &m_totalPE, "totalPE/I");     
 
+    m_evt_tree->Branch("LpmtTotalPE", &m_cd_lpmt_totalPE, "LpmtTotalPE/I");
+    m_evt_tree->Branch("SpmtTotalPE", &m_cd_spmt_totalPE, "SpmtTotalPE/I");
+    m_evt_tree->Branch("NNVTTotalPE", &m_cd_nnvt_totalPE, "NNVTTotalPE/I");
+    m_evt_tree->Branch("HamamatsuTotalPE", &m_cd_hamamatsu_totalPE, "HamamatsuTotalPE/I");
+    m_evt_tree->Branch("CDTotalPE",&m_cd_totalPE,"CDTotalPE/I");
+    m_evt_tree->Branch("WPTotalPE",&m_wp_totalPE,"WPTotalPE/I");
+
  
-   if(m_flag_hitinfo==true)
+   if(m_flag_hitinfo)
    {
     m_evt_tree->Branch("nPE", &m_nPE);
     m_evt_tree->Branch("energy", &m_energy);
@@ -129,7 +148,16 @@ NormalAnaMgr::BeginOfEventAction(const G4Event* evt) {
     m_edep_z = 0.;
     m_nPhotons = 0;
     m_totalPE = 0;
- if(m_flag_hitinfo==true)
+
+    m_cd_lpmt_totalPE = 0;
+    m_cd_spmt_totalPE = 0;
+    m_cd_nnvt_totalPE = 0;
+    m_cd_hamamatsu_totalPE = 0;
+    m_wp_totalPE = 0; 
+    m_cd_totalPE = 0;
+
+
+ if(m_flag_hitinfo)
    {
     m_nPE            .clear()                ;
     m_energy         .clear()                ;
@@ -168,8 +196,7 @@ void
 NormalAnaMgr::EndOfEventAction(const G4Event* evt) {
 
 
-if(m_flag_hitinfo==false)
-{
+
     G4SDManager * SDman = G4SDManager::GetSDMpointer();
     G4int CollID = SDman->GetCollectionID("hitCollection");
 
@@ -185,24 +212,49 @@ if(m_flag_hitinfo==false)
     if (col) {
         int n_hit = col->entries();
         m_nPhotons = n_hit;
-        if (n_hit > 2000000) { m_nPhotons = 2000000; }
+       // if (n_hit > 2000000) { m_nPhotons = 2000000; }
         for (int i = 0; i < n_hit; ++i) {
             totPE += (*col)[i]->GetCount();
-        }  
+
+ 
+            int copyno = (*col)[i]->GetPMTID();
+            if(copyno < 30000){
+                m_cd_lpmt_totalPE += (*col)[i]->GetCount();
+                m_cd_totalPE += (*col)[i]->GetCount();
+
+                if( m_pmt_sim_param_svc -> isHamamatsu(copyno)){
+                         m_cd_hamamatsu_totalPE += (*col)[i]->GetCount();
+                   }
+                   else{
+                         m_cd_nnvt_totalPE  += (*col)[i]->GetCount();
+                   }
+ 
+               }
+             else if( copyno >= 300000 ){
+  
+                 m_cd_totalPE += (*col)[i]->GetCount();
+                 m_cd_spmt_totalPE += (*col)[i]->GetCount();
+             }
+             
+             else if( copyno  < 300000 ){
+
+                 m_wp_totalPE += (*col)[i]->GetCount();
+             }
+             else {
+                LogWarn<<"PMT ID is not in valid value ! "<<std::endl;
+             }
+                   
+          }  
          m_totalPE = totPE;
      }
     
 
-}
 
 
 
-
-
-
-if(m_flag_hitinfo==true)
+if(m_flag_hitinfo)
  {
-    G4SDManager * SDman = G4SDManager::GetSDMpointer();
+    /*G4SDManager * SDman = G4SDManager::GetSDMpointer();
     G4int CollID = SDman->GetCollectionID("hitCollection");
 
     junoHit_PMT_Collection* col = 0; 
@@ -211,21 +263,21 @@ if(m_flag_hitinfo==true)
         LogError << "No hits collection found." << std::endl;
     } else {
         col = (junoHit_PMT_Collection*)(HCE->GetHC(CollID));
-    }
+    }*/
     
     // fill evt data
-    int totPE = 0;
+    //  int totPE = 0;
     if (col) {
         int n_hit = col->entries();
         m_nPhotons = n_hit;
         // FIXME: Make sure not overflow
-        if (n_hit > 2000000) { m_nPhotons = 2000000; }
+       // if (n_hit > 2000000) { m_nPhotons = 2000000; }
 
         for (int i = 0; i < n_hit; ++i) {
-            totPE += (*col)[i]->GetCount(); 
+            //totPE += (*col)[i]->GetCount(); 
             // if overflow, don't save anything into the array.
             // but still count the totalPE.
-            if (i >= 2000000) { continue; }
+           // if (i >= 2000000) { continue; }
             m_energy		.push_back((*col)[i]->GetKineticEnergy());
             m_nPE		.push_back((*col)[i]->GetCount());
             m_hitTime		.push_back((*col)[i]->GetTime());
@@ -287,7 +339,7 @@ if(m_flag_hitinfo==true)
         ++m_npmts_byPMT;
     }
 
-    m_totalPE = totPE;
+ //   m_totalPE = totPE;
 }
   
       if (m_edep>0) {
@@ -326,7 +378,7 @@ NormalAnaMgr::PreUserTrackingAction(const G4Track* aTrack) {
 
     // original OP
     // set the info 
-if(m_flag_hitinfo==true)
+if(m_flag_hitinfo)
   {
     if (aTrack->GetDefinition() == G4OpticalPhoton::Definition()
             and info->isOriginalOP()
@@ -383,7 +435,7 @@ NormalAnaMgr::PostUserTrackingAction(const G4Track* aTrack) {
                     continue;
                 }
                 NormalTrackInfo* infoNew = new NormalTrackInfo(info);
-               if(m_flag_hitinfo==true)
+               if(m_flag_hitinfo)
                {
                 // cerekov tag
                 if ((*secondaries)[i]->GetCreatorProcess() 
@@ -445,7 +497,7 @@ NormalAnaMgr::UserSteppingAction(const G4Step* step) {
     if (track->GetDefinition() == G4OpticalPhoton::Definition()) {
         G4int stepno = track->GetCurrentStepNumber();
        
-      if(m_flag_hitinfo==true)
+      if(m_flag_hitinfo)
        {
         if (track->GetTrackStatus() == fStopAndKill) {
             // if the opticalphoton is killed, save the step no
@@ -468,7 +520,7 @@ NormalAnaMgr::UserSteppingAction(const G4Step* step) {
         }
 
         // update the last hit acrylic surface
-     if(m_flag_hitinfo==true)
+     if(m_flag_hitinfo)
       {
         G4StepPoint* prepoint = step->GetPreStepPoint();
         G4StepPoint* postpoint = step->GetPostStepPoint();
@@ -523,6 +575,16 @@ bool NormalAnaMgr::save_into_data_model() {
     if (not evt_nav) {
         return false;
     }
+
+
+    const std::vector<std::string>& m_paths= evt_nav->getPath();
+    std::vector<std::string>::const_iterator pos = std::find(m_paths.begin(), m_paths.end(), "/Event/Sim");
+    if ( m_paths.end() == pos ) {
+        return false;
+    }
+
+
+
     JM::SimHeader* m_simheader = dynamic_cast<JM::SimHeader*>(evt_nav->getHeader("/Event/Sim"));
     LogDebug << "simhdr: " << m_simheader << std::endl;
     if (not m_simheader) {

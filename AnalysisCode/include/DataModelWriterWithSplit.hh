@@ -8,6 +8,7 @@
 #include "junoHit_PMT_muon.hh"
 #include "Event/SimHeader.h"
 #include "Event/SimEvent.h"
+#include "IPMTSimParamSvc/IPMTSimParamSvc.h"
 
 class ISimTrackSvc;
 class G4Event;
@@ -75,6 +76,9 @@ private:
     std::string iotaskname;
     Task* iotask;
     ISimTrackSvc* simtracksvc;
+private:
+    IPMTSimParamSvc*  m_pmt_sim_param_svc;
+
 };
 
 #endif

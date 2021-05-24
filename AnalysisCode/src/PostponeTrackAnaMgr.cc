@@ -133,7 +133,7 @@ PostponeTrackAnaMgr::EndOfEventAction(const G4Event*) {
     // increase the event 
     Task* curTask = getParent();
 
-    LogInfo << "split into " << evts.size() << " events." << std::endl;
+    LogInfo << "In the current simevent, split into " << evts.size() << " events." << std::endl;
 
     for (std::vector<HepMC::GenEvent*>::iterator it = evts.begin();
             it != evts.end(); ++it) {

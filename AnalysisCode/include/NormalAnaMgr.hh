@@ -7,6 +7,8 @@
 #include "TH1I.h"
 #include <map>
 
+#include "IPMTSimParamSvc/IPMTSimParamSvc.h"
+
 class NormalAnaMgr: public IAnalysisElement,
                     public ToolBase{
 public:
@@ -29,12 +31,23 @@ private:
     bool save_into_data_model();
 
 private:
+    IPMTSimParamSvc*  m_pmt_sim_param_svc;
+
+private:
 
     // Evt Data
     TTree* m_evt_tree;
     Int_t m_eventID;
     Int_t m_nPhotons;
     Int_t m_totalPE;
+
+    Int_t m_cd_lpmt_totalPE ;
+    Int_t m_cd_spmt_totalPE ;
+    Int_t m_cd_nnvt_totalPE ;
+    Int_t m_cd_hamamatsu_totalPE ;
+    Int_t m_wp_totalPE ;
+    Int_t m_cd_totalPE ;
+
    
     std::vector<int>	 m_nPE ;             
     std::vector<float>   m_energy;

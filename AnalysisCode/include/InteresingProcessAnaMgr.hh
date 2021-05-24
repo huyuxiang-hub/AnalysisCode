@@ -91,9 +91,11 @@ private:
     std::vector<float>  neutron_pos_y;
     std::vector<float>  neutron_pos_z;
     std::vector<double> neutron_t    ;
-
 private:
     ISimTrackSvc* simtracksvc;
+private:
+   std::vector<int>  michel_trkid;
+   std::vector<int>  neutron_sec_trkid;
 };
 
 #endif

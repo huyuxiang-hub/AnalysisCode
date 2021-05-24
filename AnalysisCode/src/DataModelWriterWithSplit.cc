@@ -32,7 +32,7 @@ DECLARE_TOOL(DataModelWriterWithSplit);
 DataModelWriterWithSplit::DataModelWriterWithSplit(const std::string& name)
     : ToolBase(name)
 {
-    iotaskname = "detsimiotask";
+    declProp("RootIOTask", iotaskname = "detsimiotask");
     iotask = 0;
     declProp("HitsMax", m_hitcol_max = 10000); // max hits in one sub event
     declProp("disable_split",m_disable_split=true);
@@ -65,13 +65,18 @@ DataModelWriterWithSplit::BeginOfRunAction(const G4Run* /*aRun*/) {
     } else {
         simtracksvc = simtracksvc_ptr.data();
     }
-    // SniperPtr<DataRegistritionSvc> drsSvc(iotask, "DataRegistritionSvc");
-    // if ( drsSvc.invalid() ) {
-    //     LogError << "Failed to get DataRegistritionSvc!" << std::endl;
-    //     throw SniperException("Make sure you have load the DataRegistritionSvc.");
-    // }
-    // FIXME: Why we need register Data???
-    // drsSvc->registerData("JM::SimEvent", "/Event/Sim");
+ 
+    m_pmt_sim_param_svc = 0;
+    LogInfo << "Retrieving PMTSimParamSvc." << std::endl;
+    SniperPtr<IPMTSimParamSvc> simsvc(*getParent(), "PMTSimParamSvc");
+      if (simsvc.invalid()) { 
+        LogError << "Can't get PMTSimParamSvc. We can't initialize PMT." << std::endl;
+        assert(0);
+      } else {
+        LogInfo << "Retrieve PMTSimParamSvc successfully." << std::endl;
+        m_pmt_sim_param_svc = simsvc.data();
+      } 
+
 }
 
 void
@@ -97,8 +102,8 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
         return;
     }
     int n_hit = col->entries();
-    if(n_hit==0)
-       {col=0;}
+   // if(n_hit==0)
+  //     {col=0;}
    
     CollID = SDman->GetCollectionID("hitCollectionMuon");
     junoHit_PMT_muon_Collection* col_muon = (junoHit_PMT_muon_Collection*)(HCE->GetHC(CollID));
@@ -108,21 +113,27 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
         n_hit += col_muon->entries();
     }
    
-    if(col){col_muon=0;}
+  //  if(col){col_muon=0;}
 
     m_start_idx = 0;
     ///=======================//
-    int m_nPhotons = 0;
+    // if you use split mode, the follow total hits means the total PE //
+    int m_CDLPMTtotalhits = 0;
+    int m_CDSPMTtotalhits = 0;
+    int m_CDNNVTtotalhits = 0;
+    int m_CDHamamatsutotalhits = 0 ;
+
+
     double m_timewindow = 0.0;
     bool minmax_initialized = false;
     double max_CDLPMT_hittime = 0;
     double min_CDLPMT_hittime = 0;
 
-    if(col_muon){
+    if(col_muon->entries()){
     
-    for (int i = 0; i < n_hit; ++i) {
-    int copyno = (*col_muon)[i]->GetPMTID();
-     if(copyno < 30000) 
+       for (int i = 0; i < n_hit; ++i) {
+       int copyno = (*col_muon)[i]->GetPMTID();
+       if(copyno < 30000) 
                 {
                     if (!minmax_initialized) {
                         max_CDLPMT_hittime = ((*col_muon)[i]->GetTime());
@@ -136,19 +147,36 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
                             max_CDLPMT_hittime = (*col_muon)[i]->GetTime();
                         }
                     }
+   
+                   m_CDLPMTtotalhits += (*col_muon)[i]->GetCount();
+                     
+                   if( m_pmt_sim_param_svc -> isHamamatsu(copyno)){
+                      
+                       m_CDHamamatsutotalhits += (*col_muon)[i]->GetCount();    
+                    
+                   }
+                   else{
+                     
+                       m_CDNNVTtotalhits += (*col_muon)[i]->GetCount();
+            
+                   }
+
+
                 }
-      if( copyno < 30000 || copyno >= 300000)
-        { m_nPhotons += (*col_muon)[i]->GetCount();}
+        if( copyno >= 300000 )
+          {
+             m_CDSPMTtotalhits += (*col_muon)[i]->GetCount();
+          }
          
-        }
+      }
        m_timewindow = max_CDLPMT_hittime - min_CDLPMT_hittime;
      }
    
-    if(col)
-    {
-       for (int i = 0; i < n_hit; ++i) {
-       int copyno = (*col)[i]->GetPMTID();
-       if(copyno < 30000)
+    if(col->entries())
+      {
+        for (int i = 0; i < n_hit; ++i) {
+        int copyno = (*col)[i]->GetPMTID();
+        if(copyno < 30000)
                 {
                     if (!minmax_initialized) {
                         max_CDLPMT_hittime = ((*col)[i]->GetTime());
@@ -161,17 +189,29 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
                         if ((*col)[i]->GetTime() > max_CDLPMT_hittime) {
                             max_CDLPMT_hittime = (*col)[i]->GetTime();
                         }
-                    }
-                }
+                     }
 
-        
+
+                   m_CDLPMTtotalhits += (*col)[i]->GetCount();
+                  
+                   if( m_pmt_sim_param_svc -> isHamamatsu(copyno)){
+                         m_CDHamamatsutotalhits += (*col)[i]->GetCount();
+                   }
+                   else{
+                         m_CDNNVTtotalhits += (*col)[i]->GetCount();
+                       }
+         
+
+                }
+           
+        if(copyno >= 300000){
+                   m_CDSPMTtotalhits += (*col)[i]->GetCount();
+                }          
 
         }
-       m_nPhotons=col->entries();
-       m_timewindow = max_CDLPMT_hittime - min_CDLPMT_hittime;
-
     
-     }
+       m_timewindow = max_CDLPMT_hittime - min_CDLPMT_hittime;
+    }
     
     SniperDataPtr<JM::NavBuffer>  navBuf(*getParent(), "/Event");
     if (navBuf.invalid()) {
@@ -184,41 +224,68 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
         return;
     }
 
-    if(m_disable_split==true){
+    if(m_disable_split){
          m_hitcol_max = n_hit;
      }
     // == get the BufferMemMgr of I/O task ==
     SniperPtr<IDataMemMgr> mMgr(*iotask, "BufferMemMgr");
     // == begin magic ==
     LogInfo << "writing events with split begin. " << TTimeStamp() << std::endl;
-    while (m_start_idx<n_hit) {
+    while (m_start_idx<n_hit or n_hit == 0 )  {
+      
         LogDebug << "Event idx: " << evt->GetEventID() << std::endl;
         LogDebug << "start idx: " << m_start_idx << std::endl;
         JM::EvtNavigator* nav = new JM::EvtNavigator();
-        if(m_start_idx==0){
-         TTimeStamp ts = evt_nav->TimeStamp();
-         nav->setTimeStamp(ts);
 
-        }else{
-        TTimeStamp ts;
-        nav->setTimeStamp(ts);
+        // Copy the GenHeader from the existing event navigator
+        nav->copyHeader(evt_nav, "/Event/Gen", "/Event/Gen");
+
+        if(m_start_idx == 0 ) { 
+          TTimeStamp ts = evt_nav->TimeStamp();
+          nav->setTimeStamp(ts);
+        }
+        else 
+        {
+          TTimeStamp ts;
+          nav->setTimeStamp(ts);
         }
         mMgr->adopt(nav, "/Event");
         
         // == create header ==
         
         JM::SimHeader* sim_header = new JM::SimHeader;
-        if (m_start_idx==0){
-           sim_header->setCDLPMTtotalHits(m_nPhotons);
-           sim_header->setCDLPMTtimeWindow(m_timewindow);
+        if (m_start_idx==0)
+         {
+           if( m_CDLPMTtotalhits >= 0 ){
+              sim_header->setCDLPMTtotalHits(m_CDLPMTtotalhits);
+           }
+           
+           if ( m_timewindow >= 0 ){ 
+              sim_header->setCDLPMTtimeWindow(m_timewindow);
+           }     
+ 
+           if ( m_CDSPMTtotalhits >= 0 ){
+              sim_header->setCDSPMTtotalHits(m_CDSPMTtotalhits);
+           }
+          
+           if ( m_CDNNVTtotalhits >= 0){
+              sim_header->setCDNNVTtotalHits(m_CDNNVTtotalhits);
+           }
+          
+           if ( m_CDHamamatsutotalhits >= 0){
+              sim_header->setCDHamamatsutotalHits(m_CDHamamatsutotalhits);
+           }  
+
+
          }
         // == create event ==
         JM::SimEvent* sim_event = new JM::SimEvent(evt->GetEventID());
         // == fill tracks ==
-        if (m_start_idx==0 ){     
-        collect_primary_track(evt);
-        fill_tracks(sim_event);
-        }
+        if (m_start_idx==0 )
+          {     
+            collect_primary_track(evt);
+            fill_tracks(sim_event);
+          }
         // == fill hits ==
         fill_hits(sim_event, evt);
         // == add header ==
@@ -226,6 +293,11 @@ DataModelWriterWithSplit::EndOfEventAction(const G4Event* evt) {
         nav->addHeader("/Event/Sim", sim_header);
         // == trigger the io event ==
         Incident::fire(*getParent(), iotaskname);
+        if ( n_hit == 0 )
+          {
+           LogWarn << "No Hit produced" << std::endl;
+           break;
+          }
     }
     LogInfo << "writing events with split end. " << TTimeStamp() << std::endl;
     // == end magic ==

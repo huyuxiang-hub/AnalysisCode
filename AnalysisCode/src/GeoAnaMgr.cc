@@ -39,6 +39,8 @@ GeoAnaMgr::GeoAnaMgr(const std::string& name)
     declProp("DAEOutput", m_filename_dae="test.dae");
 #endif
 
+    declProp("RootIOTask", m_rootio_task);
+
     m_flag_first = true;
 }
 
@@ -157,11 +159,27 @@ GeoAnaMgr::deleteGdmlFile() {
 #include "RootIOSvc/RootOutputSvc.h"
 void
 GeoAnaMgr::save_use_rootio(TGeoManager* geom) {
-    SniperPtr<RootOutputSvc> output_svc(*getParent(), "OutputSvc");
+    Task* iotask = nullptr;
+
+    if (m_rootio_task.length()) {
+        Task* toptask = getRoot();
+        iotask = dynamic_cast<Task*>(toptask->find(m_rootio_task));
+    } else {
+        iotask = getParent();
+    }
+
+    if (!iotask) {
+        LogError << "Can't find the task " << m_rootio_task
+                 << " for ROOT I/O." << std::endl;
+        return;
+    }
+    
+    SniperPtr<RootOutputSvc> output_svc(*iotask, "OutputSvc");
     if (output_svc.invalid()) {
         LogWarn << "Can't find the OutputSvc in current task." << std::endl;
         return;
     }
+
     bool status = output_svc->attachObj("/Event/Sim", geom);
     LogDebug << "Attach Geometry: " << status << std::endl;
 }

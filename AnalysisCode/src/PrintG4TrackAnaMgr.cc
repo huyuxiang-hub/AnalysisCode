@@ -43,7 +43,7 @@ void
 PrintG4TrackAnaMgr::BeginOfEventAction(const G4Event* evt /*aEvent*/) {
 
   std::cout<<"PrintG4TrackAnaMgr!!!!!!!!!!"<<std::endl;
-  if( m_verbose > 2 or m_verbose < 0 ){
+  if( m_verbose > 5 or m_verbose < 0 ){
    
     LogInfo<<"verbose has a invalid value !!"<<std::endl;
     return;
@@ -60,6 +60,18 @@ PrintG4TrackAnaMgr::BeginOfEventAction(const G4Event* evt /*aEvent*/) {
            } 
           else if ( m_verbose == 1 ){
               UImanager->ApplyCommand("/tracking/verbose 1");
+            }
+          else if ( m_verbose == 2 ){
+              UImanager->ApplyCommand("/tracking/verbose 2");
+            }
+          else if ( m_verbose == 3 ){
+              UImanager->ApplyCommand("/tracking/verbose 3");
+            }
+          else if ( m_verbose == 4 ){
+              UImanager->ApplyCommand("/tracking/verbose 4");
+            }
+          else if ( m_verbose == 5 ){
+              UImanager->ApplyCommand("/tracking/verbose 5");
             }
           else {
               UImanager->ApplyCommand("/tracking/verbose 2");

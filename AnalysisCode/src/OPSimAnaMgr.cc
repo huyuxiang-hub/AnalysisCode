@@ -30,6 +30,8 @@
 
 #include "OPSimulator/IOPSimSvc.h"
 
+#include "G4Cerenkov_modified.hh"
+
 DECLARE_TOOL(OPSimAnaMgr);
 
 OPSimAnaMgr::OPSimAnaMgr(const std::string& name) 
@@ -82,7 +84,11 @@ OPSimAnaMgr::EndOfEventAction(const G4Event* evt) {
 
         opsimulator::IOPSimulator* opsim = m_opsimsvc->get_opsimulator();
 
-        opsim->simulate();
+        if (m_eventID % 2) {
+            opsim->simulate();
+        } else {
+            opsim->clear_gensteps();
+        }
 
     }
 }
@@ -170,6 +176,47 @@ OPSimAnaMgr::UserSteppingAction(const G4Step* step) {
         gs->delta_y(step->GetDeltaPosition().y());
         gs->delta_z(step->GetDeltaPosition().z());
 
+
+        // cerenkov related
+        // - beta
+        gs->pre_beta(step->GetPreStepPoint()->GetBeta());
+        gs->post_beta(step->GetPreStepPoint()->GetBeta());
+        // - num of cerenkov photons
+        static bool ceren_proc_init = false;
+        static G4Cerenkov_modified* ceren_proc = nullptr;
+        if (!ceren_proc_init && !ceren_proc) {
+            G4ProcessManager* ElectronManager =
+                G4Electron::Electron()->GetProcessManager();
+            if (ElectronManager) {
+                G4int N =
+                    ElectronManager->GetProcessList()->entries();
+                G4ProcessVector* fProcessVector =
+                    ElectronManager->GetProcessList();
+                for ( G4int i=0; i<N; i++) {
+                    G4VProcess* fCurrentProcess = (*fProcessVector)[i];
+                    if (fCurrentProcess && fCurrentProcess->GetProcessName() == "Cerenkov") {
+                        std::cout << "Found Cerenkov process " << fCurrentProcess << std::endl;
+                        ceren_proc = dynamic_cast<G4Cerenkov_modified*>(fCurrentProcess);
+                    }
+                }
+            }
+            ceren_proc_init = true;
+        }
+
+        if (ceren_proc and ceren_proc->GetNumPhotons()>0) {
+            LogInfo << " --> Cerenkov photons: " << ceren_proc->GetNumPhotons() << std::endl;
+            gs->num_ceren(ceren_proc->GetNumPhotons());
+            gs->num_ceren_1(ceren_proc->GetNumPhotons1());
+            gs->num_ceren_2(ceren_proc->GetNumPhotons2());
+            // in order to avoid the duplication, reset the number to zero.
+            // This requires the modification on G4Cerenkov process
+            ceren_proc->ResetNumPhotons();
+
+        } else {
+            gs->num_ceren(0);
+            gs->num_ceren_1(0);
+            gs->num_ceren_2(0);
+        }
     }
 
 

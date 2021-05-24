@@ -35,7 +35,7 @@ MuonFastSimVoxel::MuonFastSimVoxel(const std::string& name)
 
     geom_file = "geom-geom-20pmt.root";
     npe_loader_file = "npehist3d_single.root"; 
-    hittime_mean_file = "hist3d.root";
+    hittime_mean_file = ""; // "hist3d.root";
     hittime_single_file = "dist_tres_single.root";
 
     m_merge_flag = false;
@@ -91,17 +91,21 @@ MuonFastSimVoxel::BeginOfRunAction(const G4Run* /*aRun*/) {
         LogInfo << "Load Hit Time File for Voxel Method: "
                 << hittime_mean_file << " / " 
                 << hittime_single_file << std::endl;
-        m_helper_hittime = new VoxelMethodHelper::HitTimeLoader();
+        // m_helper_hittime = new VoxelMethodHelper::HitTimeLoader();
+        
+        m_helper_hittime = new VoxelMethodHelper::HitTimeLoaderV2();
         m_helper_hittime->m_single_filename = hittime_single_file;
         m_helper_hittime->m_lazy_loading=m_lazy_loading;
         m_helper_hittime->load();
-        assert(m_helper_hittime->f_single);
+        // assert(m_helper_hittime->f_single);
     }
     if (!m_helper_npe) {
         LogInfo << "Load NPE File for Voxel Method: "
                 << npe_loader_file << std::endl;
-        m_helper_npe = new VoxelMethodHelper::NPELoader();
-        m_helper_npe->m_filename_npe = npe_loader_file;
+        // m_helper_npe = new VoxelMethodHelper::NPELoader();
+        // m_helper_npe->m_filename_npe = npe_loader_file;
+        m_helper_npe = new VoxelMethodHelper::NPELoaderV2();
+
         m_helper_npe->m_filename_npe_single = npe_loader_file;
         m_helper_npe->m_lazy_loading=m_lazy_loading;
         m_helper_npe->load();
@@ -238,7 +242,7 @@ MuonFastSimVoxel::UserSteppingAction(const G4Step* step) {
     // Double_t r3 = TMath::Power(r, 3);
     // Int_t binx = xaxis->FindBin(r3);
     // loop 
-    for (int i = 0; i < 17746; ++i) {
+    for (int i = 0; i < m_helper_geom->N; ++i) {
         const TVector3& pos_pmt = m_helper_geom->PMT_pos[i];
         float theta = pos_pmt.Angle(pos_src);
         // float costheta = TMath::Cos(theta);

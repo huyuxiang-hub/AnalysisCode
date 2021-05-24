@@ -90,16 +90,21 @@ DataModelWriter::EndOfEventAction(const G4Event* evt) {
         return;
     }
 
-    // create a new Event Navigator
-    JM::EvtNavigator* nav = new JM::EvtNavigator();
-    TTimeStamp ts = evt_nav->TimeStamp();
-    nav->setTimeStamp(ts);
-    LogDebug << "current Timestamp: '"
-            << ts
-            << "'." << std::endl;
+    JM::EvtNavigator* nav = evt_nav;
 
-    SniperPtr<IDataMemMgr> mMgr(*getParent(), "BufferMemMgr");
-    mMgr->adopt(nav, "/Event");
+    // create a new Event Navigator
+    // JM::EvtNavigator* nav = new JM::EvtNavigator();
+    // TTimeStamp ts = evt_nav->TimeStamp();
+    // nav->setTimeStamp(ts);
+    // LogDebug << "current Timestamp: '"
+    //         << ts
+    //         << "'." << std::endl;
+
+    // SniperPtr<IDataMemMgr> mMgr(*getParent(), "BufferMemMgr");
+    // mMgr->adopt(nav, "/Event");
+
+    
+
     // create header
     JM::SimHeader* sim_header = new JM::SimHeader;
     // create event
